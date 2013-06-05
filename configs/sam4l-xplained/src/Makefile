@@ -1,7 +1,7 @@
 ############################################################################
-# libc/stdio/Make.defs
+# configs/sam4l-xplained/src/Makefile
 #
-#   Copyright (C) 2011-2013 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2013 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,54 +33,54 @@
 #
 ############################################################################
 
-# Add the stdio C files to the build
-# This first group of C files do not depend on having file descriptors or
-# C streams.
+-include $(TOPDIR)/Make.defs
 
-CSRCS += lib_fileno.c lib_printf.c lib_syslog.c lib_lowsyslog.c \
-		 lib_sprintf.c lib_asprintf.c lib_snprintf.c lib_libsprintf.c \
-		 lib_vsprintf.c lib_avsprintf.c lib_vsnprintf.c lib_libvsprintf.c \
-		 lib_dprintf.c lib_vdprintf.c \
-		 lib_meminstream.c lib_memoutstream.c lib_lowinstream.c \
-		 lib_lowoutstream.c lib_zeroinstream.c lib_nullinstream.c \
-		 lib_nulloutstream.c lib_sscanf.c
+CFLAGS += -I$(TOPDIR)/sched
 
-# The remaining sources files depend upon file descriptors
+ASRCS =
+AOBJS = $(ASRCS:.S=$(OBJEXT))
 
-ifneq ($(CONFIG_NFILE_DESCRIPTORS),0)
+CSRCS = sam_boot.c sam_autoleds.c sam_buttons.c sam_spi.c
 
-CSRCS += lib_rawinstream.c lib_rawoutstream.c
+COBJS = $(CSRCS:.c=$(OBJEXT))
 
-# And these depend upon both file descriptors and C streams
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
 
-ifneq ($(CONFIG_NFILE_STREAMS),0)
-
-CSRCS += lib_fopen.c lib_fclose.c lib_fread.c lib_libfread.c lib_fseek.c \
-		 lib_ftell.c lib_fsetpos.c lib_fgetpos.c lib_fgetc.c lib_fgets.c \
-		 lib_gets.c lib_fwrite.c lib_libfwrite.c lib_fflush.c \
-		 lib_libflushall.c lib_libfflush.c lib_rdflush.c lib_wrflush.c \
-		 lib_fputc.c lib_puts.c lib_fputs.c lib_ungetc.c lib_vprintf.c \
-		 lib_fprintf.c lib_vfprintf.c lib_stdinstream.c lib_stdoutstream.c \
-		 lib_perror.c lib_feof.c lib_ferror.c lib_clearerr.c
-
-endif
+ARCH_SRCDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src
+ifeq ($(WINTOOL),y)
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/common}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/armv7-m}"
+else
+  CFLAGS += -I$(ARCH_SRCDIR)/chip
+  CFLAGS += -I$(ARCH_SRCDIR)/common
+  CFLAGS += -I$(ARCH_SRCDIR)/armv7-m
 endif
 
-# Other support that depends on specific, configured features.
+all: libboard$(LIBEXT)
 
-ifeq ($(CONFIG_SYSLOG),y)
-CSRCS += lib_syslogstream.c
-endif
+$(AOBJS): %$(OBJEXT): %.S
+	$(call ASSEMBLE, $<, $@)
 
-ifeq ($(CONFIG_LIBC_FLOATINGPOINT),y)
-CSRCS += lib_dtoa.c
-endif
+$(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
+	$(call COMPILE, $<, $@)
 
-ifeq ($(CONFIG_STDIO_LINEBUFFER),y)
-CSRCS += lib_libnoflush.c
-endif
+libboard$(LIBEXT): $(OBJS)
+	$(call ARCHIVE, $@, $(OBJS))
 
-# Add the stdio directory to the build
+.depend: Makefile $(SRCS)
+	$(Q) $(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
 
-DEPPATH += --dep-path stdio
-VPATH += :stdio
+depend: .depend
+
+clean:
+	$(call DELFILE, libboard$(LIBEXT))
+	$(call CLEAN)
+
+distclean: clean
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
+
+-include Make.dep

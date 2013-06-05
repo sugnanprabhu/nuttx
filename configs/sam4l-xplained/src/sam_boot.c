@@ -1,7 +1,7 @@
 /************************************************************************************
- * arch/arm/src/sam34/chip/sam_pinmap.h
+ * configs/sam4l-xplained/src/sam_boot.c
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,21 +33,54 @@
  *
  ************************************************************************************/
 
-#ifndef __ARCH_ARM_SRC_SAM34_CHIP_SAM_PINMAP_H
-#define __ARCH_ARM_SRC_SAM34_CHIP_SAM_PINMAP_H
-
 /************************************************************************************
  * Included Files
  ************************************************************************************/
 
 #include <nuttx/config.h>
-#include "chip.h"
 
-#if defined(CONFIG_ARCH_CHIP_SAM3U)
-#  include "chip/sam3u_pinmap.h"
-#else
-#  error Unrecognized SAM architecture
+#include <debug.h>
+
+#include "sam4l-xplained.h"
+
+/************************************************************************************
+ * Definitions
+ ************************************************************************************/
+
+/************************************************************************************
+ * Private Functions
+ ************************************************************************************/
+
+/************************************************************************************
+ * Public Functions
+ ************************************************************************************/
+
+/************************************************************************************
+ * Name: sam_boardinitialize
+ *
+ * Description:
+ *   All SAM3U architectures must provide the following entry point.  This entry point
+ *   is called early in the intitialization -- after all memory has been configured
+ *   and mapped but before any devices have been initialized.
+ *
+ ************************************************************************************/
+
+void sam_boardinitialize(void)
+{
+  /* Configure SPI chip selects if 1) SPI is not disabled, and 2) the weak function
+   * sam_spiinitialize() has been brought into the link.
+   */
+
+#ifdef CONFIG_SAM34_SPI
+  if (sam_spiinitialize)
+    {
+      sam_spiinitialize();
+    }
 #endif
 
-#endif /* __ARCH_ARM_SRC_SAM34_CHIP_SAM_PINMAP_H */
+  /* Configure on-board LEDs if LED support has been selected. */
 
+#ifdef CONFIG_ARCH_LEDS
+  up_ledinit();
+#endif
+}
