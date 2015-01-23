@@ -67,6 +67,12 @@
 #include "up_arch.h"
 #include "up_internal.h"
 
+#if !defined(CONFIG_BOARD_USE_PROBES)
+# define PROBE_INIT(mask)
+# define PROBE(n,s)
+# define PROBE_MARK(n)
+#endif
+
 /****************************************************************************
  * Preprocessor Definitions
  ****************************************************************************/
@@ -1564,7 +1570,6 @@ static int up_dma_setup(struct uart_dev_s *dev)
    * full points in the FIFO.  This ensures that we have half a FIFO
    * worth of time to claim bytes before they are overwritten.
    */
-
   stm32_dmastart(priv->rxdma, up_dma_rxcallback, (void *)priv, true);
 
   return OK;
@@ -1735,6 +1740,7 @@ static int up_interrupt_common(struct up_dev_s *priv)
   pm_activity(CONFIG_PM_SERIAL_ACTIVITY);
 #endif
 
+  PROBE(1,true);
   /* Loop until there are no characters to be transferred or,
    * until we have been looping for a long time.
    */
@@ -1793,8 +1799,10 @@ static int up_interrupt_common(struct up_dev_s *priv)
             * RXNEIE:  We cannot call uart_recvchards of RX interrupts are disabled.
             */
 
+          PROBE(3,true);
            uart_recvchars(&priv->dev);
            handled = true;
+           PROBE(3,false);
         }
 
        /* We may still have to read from the DR register to clear any pending
@@ -1828,12 +1836,16 @@ static int up_interrupt_common(struct up_dev_s *priv)
       if ((priv->sr & USART_SR_TXE) != 0 && (priv->ie & USART_CR1_TXEIE) != 0)
         {
            /* Transmit data register empty ... process outgoing bytes */
-
+    	  PROBE(2,true);
            uart_xmitchars(&priv->dev);
            handled = true;
+           PROBE(2,false);
+
         }
     }
-
+  PROBE(1,false);
+  PROBE(5,false);
+  PROBE(6,false);
   return OK;
 }
 
@@ -2403,6 +2415,7 @@ static bool up_txready(struct uart_dev_s *dev)
 #ifdef CONFIG_STM32_USART1
 static int up_interrupt_usart1(int irq, void *context)
 {
+  PROBE(5,true);
   return up_interrupt_common(&g_usart1priv);
 }
 #endif
@@ -2410,6 +2423,7 @@ static int up_interrupt_usart1(int irq, void *context)
 #ifdef CONFIG_STM32_USART2
 static int up_interrupt_usart2(int irq, void *context)
 {
+  PROBE(6,true);
   return up_interrupt_common(&g_usart2priv);
 }
 #endif
@@ -2469,11 +2483,13 @@ static int up_interrupt_uart8(int irq, void *context)
 static void up_dma_rxcallback(DMA_HANDLE handle, uint8_t status, void *arg)
 {
   struct up_dev_s *priv = (struct up_dev_s *)arg;
+  PROBE(4,true);
 
   if (priv->rxenable && up_dma_rxavailable(&priv->dev))
     {
       uart_recvchars(&priv->dev);
     }
+  PROBE(4,false);
 }
 #endif
 
@@ -2644,6 +2660,13 @@ void up_serialinit(void)
   int ret;
 #endif
 
+  PROBE_INIT(PROBE_N(1)|PROBE_N(2)|PROBE_N(3)|PROBE_N(4)|PROBE_N(5)|PROBE_N(6));
+  PROBE_MARK(1);PROBE(1,false);
+  PROBE_MARK(2);PROBE(2,false);
+  PROBE_MARK(3);PROBE(3,false);
+  PROBE_MARK(4);PROBE(4,false);
+  PROBE_MARK(5);PROBE(5,false);
+  PROBE_MARK(6);PROBE(6,false);
   /* Register to receive power management callbacks */
 
 #ifdef CONFIG_PM
@@ -2730,7 +2753,9 @@ void stm32_serial_dma_poll(void)
 #ifdef CONFIG_USART2_RXDMA
   if (g_usart2priv.rxdma != NULL)
     {
+	  PROBE(6,true);
       up_dma_rxcallback(g_usart2priv.rxdma, 0, &g_usart2priv);
+      PROBE(6,false);
     }
 #endif
 
