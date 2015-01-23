@@ -119,6 +119,10 @@
 	.thumb_func
 exception_common:
 
+	ldr r1, =#0x40021000
+	ldr r0, =#0x2000
+	str r0, [r1, #24]
+
 	mrs		r0, ipsr				/* R0=exception number */
 
 	/* Complete the context save */
@@ -299,6 +303,9 @@ exception_common:
 	/* Always return with R14 containing the special value that will: (1)
 	 * return to thread mode, and (2) select the correct stack.
 	 */
+	ldr r1, =#0x40021000
+	ldr r0, =#0x20000000
+	str r0, [r1, #24]
 
 	bx		r14						/* And return */
 
