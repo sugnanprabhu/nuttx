@@ -692,4 +692,10 @@ int llvdbg(const char *format, ...);
 }
 #endif
 
+#if !defined(CONFIG_BOARD_USE_PROBES)
+# define PROBE_INIT(mask)
+# define PROBE(n,s)
+# define PROBE_MARK(n)
+#endif
+
 #endif /* __INCLUDE_DEBUG_H */

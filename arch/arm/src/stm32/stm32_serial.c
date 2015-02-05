@@ -66,7 +66,7 @@
 #include "stm32_rcc.h"
 #include "up_arch.h"
 #include "up_internal.h"
-
+#undef CONFIG_BOARD_USE_PROBES
 #if !defined(CONFIG_BOARD_USE_PROBES)
 # define PROBE_INIT(mask)
 # define PROBE(n,s)
@@ -1836,10 +1836,10 @@ static int up_interrupt_common(struct up_dev_s *priv)
       if ((priv->sr & USART_SR_TXE) != 0 && (priv->ie & USART_CR1_TXEIE) != 0)
         {
            /* Transmit data register empty ... process outgoing bytes */
-    	  PROBE(2,true);
+//    	  PROBE(2,true);
            uart_xmitchars(&priv->dev);
            handled = true;
-           PROBE(2,false);
+//         PROBE(2,false);
 
         }
     }

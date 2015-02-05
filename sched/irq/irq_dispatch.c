@@ -78,6 +78,10 @@
  *   logic.
  *
  ***************************************************************************/
+uint64_t hrt_absolute_time(void);
+static uint64_t _start;
+static uint64_t _end;
+static int _longs[NR_IRQS];
 
 void irq_dispatch(int irq, FAR void *context)
 {
@@ -100,6 +104,19 @@ void irq_dispatch(int irq, FAR void *context)
 
   /* Then dispatch to the interrupt handler */
 
+  _start = hrt_absolute_time();
   vector(irq, context);
+
+  _end= hrt_absolute_time();
+  if ((_end - _start) > 90){
+	  _longs[irq]++;
+	  if (_longs[irq] > 1000) {
+		  volatile int k;
+		  k++;
+	  }
+
+  }
+
+
 }
 
