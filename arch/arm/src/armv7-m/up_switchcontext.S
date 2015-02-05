@@ -84,8 +84,18 @@ up_switchcontext:
 
 	/* Perform the System call with R0=1, R1=saveregs, R2=restoreregs */
 
+
 	mov		r2, r1					/* R2: restoreregs */
 	mov		r1, r0					/* R1: saveregs */
+#if defined(CONFIG_ARCH_BOARD_PX4FMU_V2)
+    push {r1}
+	ldr r1, =#0x40020c00
+	ldr r0, =#0x4000 	 /* PROBE(6,true) */
+	str r0, [r1, #24]
+	ldr r0, =#0x40000000 /* PROBE(6,true) */
+	str r0, [r1, #24]
+	pop {r1}
+#endif
 	mov		r0, #SYS_switch_context	/* R0: context switch */
 	svc		0						/* Force synchronous SVCall (or Hard Fault) */
 

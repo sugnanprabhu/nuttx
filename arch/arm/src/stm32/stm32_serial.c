@@ -38,6 +38,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#undef CONFIG_BOARD_USE_PROBES
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -66,12 +67,6 @@
 #include "stm32_rcc.h"
 #include "up_arch.h"
 #include "up_internal.h"
-#undef CONFIG_BOARD_USE_PROBES
-#if !defined(CONFIG_BOARD_USE_PROBES)
-# define PROBE_INIT(mask)
-# define PROBE(n,s)
-# define PROBE_MARK(n)
-#endif
 
 /****************************************************************************
  * Preprocessor Definitions
