@@ -109,8 +109,9 @@
 int up_timerisr(int irq, uint32_t *regs)
 {
    /* Process timer interrupt */
-
+   PROBE(4,true);
    sched_process_timer();
+   PROBE(4,false);
    return 0;
 }
 
