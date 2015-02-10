@@ -206,6 +206,7 @@ struct stm32_spidev_s
   int8_t           nbits;      /* Width of word in bits (8 or 16) */
   uint8_t          mode;       /* Mode 0,1,2,3 */
 #endif
+  int bus;
 };
 
 /************************************************************************************
@@ -293,6 +294,7 @@ static struct stm32_spidev_s g_spi1dev =
   .spidev   = { &g_sp1iops },
   .spibase  = STM32_SPI1_BASE,
   .spiclock = STM32_PCLK2_FREQUENCY,
+  .bus = 1,
 #ifdef CONFIG_STM32_SPI_INTERRUPTS
   .spiirq   = STM32_IRQ_SPI1,
 #endif
@@ -332,6 +334,7 @@ static struct stm32_spidev_s g_spi2dev =
   .spidev   = { &g_sp2iops },
   .spibase  = STM32_SPI2_BASE,
   .spiclock = STM32_PCLK1_FREQUENCY,
+  .bus = 2,
 #ifdef CONFIG_STM32_SPI_INTERRUPTS
   .spiirq   = STM32_IRQ_SPI2,
 #endif
@@ -409,7 +412,8 @@ static struct stm32_spidev_s g_spi4dev =
 {
   .spidev   = { &g_sp4iops },
   .spibase  = STM32_SPI4_BASE,
-  .spiclock = STM32_PCLK1_FREQUENCY,
+  .spiclock = STM32_PCLK2_FREQUENCY,
+  .bus = 4,
 #ifdef CONFIG_STM32_SPI_INTERRUPTS
   .spiirq   = STM32_IRQ_SPI4,
 #endif
@@ -448,7 +452,7 @@ static struct stm32_spidev_s g_spi5dev =
 {
   .spidev   = { &g_sp5iops },
   .spibase  = STM32_SPI5_BASE,
-  .spiclock = STM32_PCLK1_FREQUENCY,
+  .spiclock = STM32_PCLK2_FREQUENCY,
 #ifdef CONFIG_STM32_SPI_INTERRUPTS
   .spiirq   = STM32_IRQ_SPI5,
 #endif
@@ -487,7 +491,7 @@ static struct stm32_spidev_s g_spi6dev =
 {
   .spidev   = { &g_sp6iops },
   .spibase  = STM32_SPI6_BASE,
-  .spiclock = STM32_PCLK1_FREQUENCY,
+  .spiclock = STM32_PCLK2_FREQUENCY,
 #ifdef CONFIG_STM32_SPI_INTERRUPTS
   .spiirq   = STM32_IRQ_SPI6,
 #endif
@@ -505,6 +509,14 @@ static struct stm32_spidev_s g_spi6dev =
 /************************************************************************************
  * Private Functions
  ************************************************************************************/
+static int get_busn(FAR struct stm32_spidev_s *priv)
+{
+	if (priv ==	&g_spi1dev) return 1;
+	if (priv ==	&g_spi2dev) return 2;
+	if (priv ==	&g_spi4dev) return 4;
+	return 0;
+
+}
 
 /************************************************************************************
  * Name: spi_getreg
@@ -943,6 +955,9 @@ static int spi_lock(FAR struct spi_dev_s *dev, bool lock)
 }
 #endif
 
+
+volatile bool px4spi_init = 0;
+
 /************************************************************************************
  * Name: spi_setfrequency
  *
@@ -1050,9 +1065,9 @@ static uint32_t spi_setfrequency(FAR struct spi_dev_s *dev, uint32_t frequency)
       priv->frequency = frequency;
       priv->actual    = actual;
     }
-  return priv->actual;
+   return priv->actual;
 #else
-  return actual;
+   return actual;
 #endif
 }
 
@@ -1528,6 +1543,7 @@ static void spi_portinitialize(FAR struct stm32_spidev_s *priv)
   /* Enable spi */
 
   spi_modifycr1(priv, SPI_CR1_SPE, 0);
+  priv->bus = get_busn(priv);
 }
 
 /************************************************************************************
@@ -1551,7 +1567,7 @@ static void spi_portinitialize(FAR struct stm32_spidev_s *priv)
 FAR struct spi_dev_s *up_spiinitialize(int port)
 {
   FAR struct stm32_spidev_s *priv = NULL;
-
+px4spi_init = 1;
   irqstate_t flags = irqsave();
 
 #ifdef CONFIG_STM32_SPI1
