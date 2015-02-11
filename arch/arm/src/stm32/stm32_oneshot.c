@@ -52,6 +52,7 @@
 #include <errno.h>
 #include <debug.h>
 
+#include <arch/board/board.h>
 #include <arch/irq.h>
 #include <nuttx/clock.h>
 
@@ -138,6 +139,8 @@ static int stm32_oneshot_handler(int irq, void *context)
 
   tcllvdbg("Expired...\n");
   DEBUGASSERT(oneshot && oneshot->handler);
+  PROBE(4,true);
+  PROBE(5,true);
 
   switch(--oneshot->loops)
      {
@@ -145,6 +148,7 @@ static int stm32_oneshot_handler(int irq, void *context)
 	 		  (void)STM32_TIM_SETMODE(dev, STM32_TIM_MODE_PULSE);
 		 	  if (oneshot->remainder)
 		 	    {
+			   	   PROBE_MARK(5);
 		 		  (void)STM32_TIM_SETPERIOD(dev, oneshot->remainder);
 		 		  (void)STM32_TIM_SETCLOCK(dev,oneshot->frequency);
 		 		  break;
@@ -153,6 +157,8 @@ static int stm32_oneshot_handler(int irq, void *context)
   	   case -1:
 		 	  if (oneshot->frac)
 		 	    {
+			   	   PROBE_MARK(5);
+			   	   PROBE_MARK(5);
 		 		  (void)STM32_TIM_SETPERIOD(dev, oneshot->frac);
 		 		  (void)STM32_TIM_SETCLOCK(dev,1000000);
 		 		  break;
@@ -161,6 +167,9 @@ static int stm32_oneshot_handler(int irq, void *context)
 
   	   case -2:
 
+	   	   PROBE_MARK(5);
+	   	   PROBE_MARK(5);
+	   	   PROBE_MARK(5);
  		  (void)STM32_TIM_SETMODE(dev, STM32_TIM_MODE_DISABLED);
 
   		   /* The clock was stopped, and disabled when the over flow occurred.   */
@@ -182,6 +191,9 @@ static int stm32_oneshot_handler(int irq, void *context)
   	   default:
    		  break;
      }
+   STM32_TIM_ACKINT(dev,0);
+   PROBE(4,false);
+   PROBE(5,false);
   return 0;
 }
 
@@ -218,6 +230,14 @@ int stm32_oneshot_initialize(struct stm32_oneshot_s *oneshot, int chan,
   g_oneshot = oneshot;
   tcvdbg("chan=%d resolution=%d usec\n", chan, resolution);
   DEBUGASSERT(oneshot && resolution > 0);
+
+  PROBE_INIT(PROBE_N(1)|PROBE_N(2)|PROBE_N(3)|PROBE_N(4)|PROBE_N(5)|PROBE_N(6));
+  PROBE_MARK(1);PROBE(1,false);
+  PROBE_MARK(2);PROBE(2,false);
+  PROBE_MARK(3);PROBE(3,false);
+  PROBE_MARK(4);PROBE(4,false);
+  PROBE_MARK(5);PROBE(5,false);
+  PROBE_MARK(6);PROBE(6,false);
 
   dev = stm32_tim_init(chan);
 
@@ -311,7 +331,7 @@ int stm32_oneshot_start(struct stm32_oneshot_s *oneshot, oneshot_handler_t handl
   oneshot->resolutionticks = usec / oneshot->resolution;
   oneshot->loops 		   = (oneshot->resolutionticks / STM32_MAX_TIMER_CNT) + 1;
   oneshot->remainder 	   = oneshot->resolutionticks % STM32_MAX_TIMER_CNT;
-  oneshot->frac  		   = usec % STM32_MAX_TIMER_CNT;
+  oneshot->frac  		   = usec % oneshot->resolution;
 
   if (oneshot->loops > 1)
     {
@@ -446,14 +466,9 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
       else
         {
           /* The total time remaining is the difference.  Convert the that
-           * to units of microseconds.
-           *
-           *   frequency = ticks / second
-           *   seconds   = ticks / frequency
-           *   usecs     = (ticks * USEC_PER_SEC) / frequency;
-           */
+           * to units of microseconds. */
 
-          usec        = (((uint64_t)(count)) * USEC_PER_SEC) / oneshot->frequency;
+          usec        = (((uint64_t)(count)) * CONFIG_USEC_PER_TICK);
 
           /* Return the time remaining in the correct form */
 

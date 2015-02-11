@@ -51,6 +51,7 @@
 #include <errno.h>
 
 #include <arch/irq.h>
+#include <arch/board/board.h>
 #include <nuttx/clock.h>
 
 #include "stm32_freerun.h"
@@ -123,8 +124,12 @@ static struct stm32_freerun_s *g_freerun;
 static int  stm32_freerun_handler(int irq, void *context)
 {
   struct stm32_freerun_s *freerun = g_freerun;
+  PROBE(3,true);
+  FAR struct stm32_tim_dev_s * dev = (FAR struct stm32_tim_dev_s *) freerun->tch;
   DEBUGASSERT(freerun && freerun->overflow < UINT16_MAX);
   freerun->overflow++;
+  STM32_TIM_ACKINT(dev,0);
+  PROBE(3,false);
   return 0;
 }
 
@@ -264,14 +269,9 @@ int stm32_freerun_counter(struct stm32_freerun_s *freerun, struct timespec *ts)
              (unsigned long)counter, (unsigned long)overflow);
     }
 
-  /* Convert the whole thing to units of microseconds.
-   *
-   *   frequency = ticks / second
-   *   seconds   = ticks * frequency
-   *   usecs     = (ticks * USEC_PER_SEC) / frequency;
-   */
+  /* Convert the whole thing to units of microseconds. */
 
-  usec = ((((uint64_t)overflow << STM32_MAX_TIMER_BIT) + (uint64_t)counter) * USEC_PER_SEC) / freerun->frequency;
+  usec = ((((uint64_t)overflow * STM32_MAX_TIMER_CNT * CONFIG_USEC_PER_TICK) + (uint64_t)counter) * CONFIG_USEC_PER_TICK);
 
   /* And return the value of the timer */
 
