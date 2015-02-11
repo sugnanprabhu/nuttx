@@ -277,9 +277,8 @@ static int stm32_tim_setclock(FAR struct stm32_tim_dev_s *dev, uint32_t freq)
       return 0;
     }
 
-#if STM32_NATIM > 0
-  if (((struct stm32_tim_priv_s *)dev)->base == STM32_TIM1_BASE ||
-      ((struct stm32_tim_priv_s *)dev)->base == STM32_TIM8_BASE)
+#if STM32_NATIM > 0 || STM32_NGTIMNDMA > 0
+  if (((struct stm32_tim_priv_s *)dev)->base >= STM32_TIM1_BASE)
     {
       prescaler = STM32_TIM18_FREQUENCY / freq;
     }
@@ -442,7 +441,21 @@ static int stm32_tim_setmode(FAR struct stm32_tim_dev_s *dev, stm32_tim_mode_t m
 #if STM32_NBTIM > 0
   )
     {
-      return ERROR;
+	  switch (mode & STM32_TIM_MODE_MASK)
+	    {
+	      case STM32_TIM_MODE_DISABLED:
+	        val = 0;
+	        break;
+
+	      case STM32_TIM_MODE_PULSE:
+	        val |= ATIM_CR1_OPM;
+	        break;
+
+	      case STM32_TIM_MODE_UP:
+	        break;
+
+	      default: return ERROR;
+	    }
     }
 #endif
 
@@ -787,6 +800,20 @@ static int stm32_tim_getcapture(FAR struct stm32_tim_dev_s *dev, uint8_t channel
   return ERROR;
 }
 
+#ifdef CONFIG_STM32_ONESHOT
+static int stm32_tim_getremaining(FAR struct stm32_tim_dev_s *dev, int * sr)
+{
+  irqstate_t flags;
+  int remaining;
+  ASSERT(dev && sr);
+  flags    = irqsave();
+  remaining = stm32_getreg16(dev,STM32_BTIM_ARR_OFFSET);
+  remaining -= stm32_getreg16(dev,STM32_BTIM_CNT_OFFSET);
+  *sr = stm32_getreg16(dev, STM32_BTIM_SR_OFFSET);
+  irqrestore(flags);
+  return remaining;
+}
+#endif
 /************************************************************************************
  * Advanced Functions
  ************************************************************************************/
@@ -808,7 +835,11 @@ struct stm32_tim_ops_s stm32_tim_ops =
   .setisr         = &stm32_tim_setisr,
   .enableint      = &stm32_tim_enableint,
   .disableint     = &stm32_tim_disableint,
-  .ackint         = &stm32_tim_ackint
+  .ackint         = &stm32_tim_ackint,
+#ifdef CONFIG_STM32_ONESHOT
+  .readremaining  = &stm32_tim_getremaining
+#endif
+
 };
 
 #if CONFIG_STM32_TIM2

@@ -53,6 +53,10 @@
 /************************************************************************************
  * Pre-processor Definitions
  ************************************************************************************/
+/* An opaque handle used to represent a timer channel */
+
+typedef void *TC_HANDLE;
+
 /* Helpers **************************************************************************/
 
 #define STM32_TIM_SETMODE(d,mode)       ((d)->ops->setmode(d,mode))
@@ -65,7 +69,9 @@
 #define STM32_TIM_ENABLEINT(d,s)        ((d)->ops->enableint(d,s))
 #define STM32_TIM_DISABLEINT(d,s)       ((d)->ops->disableint(d,s))
 #define STM32_TIM_ACKINT(d,s)           ((d)->ops->ackint(d,s))
-
+#ifdef CONFIG_STM32_ONESHOT
+#define STM32_TIME_GETREMAING(d,sr)     ((d)->ops->readremaining(d,sr))
+#endif
 /************************************************************************************
  * Public Types
  ************************************************************************************/
@@ -79,6 +85,9 @@ extern "C" {
 #else
 #define EXTERN extern
 #endif
+
+#define  STM32_MAX_TIMER_BIT (16)
+#define  STM32_MAX_TIMER_CNT (1 << STM32_MAX_TIMER_BIT)
 
 /* TIM Device Structure */
 
@@ -170,6 +179,10 @@ struct stm32_tim_ops_s
   void (*enableint)(FAR struct stm32_tim_dev_s *dev, int source);
   void (*disableint)(FAR struct stm32_tim_dev_s *dev, int source);
   void (*ackint)(FAR struct stm32_tim_dev_s *dev, int source);
+#ifdef CONFIG_STM32_ONESHOT
+  int (*readremaining)(FAR struct stm32_tim_dev_s *dev, int *sr);
+#endif
+
 };
 
 /************************************************************************************

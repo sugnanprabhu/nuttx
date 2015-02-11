@@ -1090,6 +1090,42 @@ config STM32_HAVE_SPI5
 	bool
 	default n
 
+config STM32_ONESHOT
+	bool "Timer Counter one-shot wrapper"
+	default n if !SCHED_TICKLESS
+	default y if SCHED_TICKLESS
+	---help---
+		Enable a wrapper around the low level timer/counter functions to
+		support one-shot timer.
+
+config STM32_FREERUN
+	bool "Timer Counter free-running wrapper"
+	default n if !SCHED_TICKLESS
+	default y if SCHED_TICKLESS
+	---help---
+		Enable a wrapper around the low level timer/counter functions to
+		support a free-running timer.
+
+if SCHED_TICKLESS
+
+config STM32_TICKLESS_ONESHOT
+	int "Tickless one-shot timer"
+	default 6
+	range 1 14
+	---help---
+		If the Tickless OS feature is enabled, the one clock must be
+		assigned to provided the one-shot timer needed by the OS.
+
+config STM32_TICKLESS_FREERUN
+	int "Tickless free-running timer channel"
+	default 7
+	range 1 14
+	---help---
+		If the Tickless OS feature is enabled, the one clock must be
+		assigned to provided the free-running timer needed by the OS.
+
+endif
+
 # These are the peripheral selections proper
 
 config STM32_ADC1
