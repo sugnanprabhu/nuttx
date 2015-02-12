@@ -64,7 +64,8 @@
  *   arg - The opaque argument provided when the interrupt was registered
  */
 
-typedef void (*oneshot_handler_t)(void *arg);
+typedef void
+(*oneshot_handler_t)(void *arg);
 
 /* The oneshot client must allocate an instance of this structure and called
  * stm32_oneshot_initialize() before using the oneshot facilities.  The client
@@ -74,28 +75,25 @@ typedef void (*oneshot_handler_t)(void *arg);
 
 struct stm32_oneshot_s
 {
-  uint8_t chan;                       /* The timer/counter in use */
-  volatile bool running;              /* True: the timer is running */
-  TC_HANDLE tch;                      /* Handle returned by
-                                       * stm32_tim_initialize() */
-  volatile oneshot_handler_t handler; /* Oneshot expiration callback */
-  volatile void *arg;                 /* The argument that will accompany
-                                       * the callback */
-  uint16_t resolution;				  /* requested resolution */
-  uint32_t frequency;				  /* Calculated frequency */
+  volatile bool running;                /* True: the timer is running */
+  FAR struct stm32_tim_dev_s * dev;     /* Handle returned by
+                                         * stm32_tim_initialize() */
+  volatile oneshot_handler_t handler;   /* Oneshot expiration callback */
+  volatile void *arg;                   /* The argument that will accompany
+                                         * the callback */
+  uint16_t resolution;                  /* requested resolution */
+  uint32_t frequency;                   /* Calculated frequency */
 
-  uint32_t resolutionticks;		  	  /* Number of ticks in resolution
-   	   	   	   	   	   	   	   	   	   * units */
-  int32_t loops;					  /* Number of Times the ISR will
-  	  	  	  	  	  	  	  	  	   * run before the call back will
-  	  	  	  	  	  	  	  	  	   * be called. The period will be set
-  	  	  	  	  	  	  	  	  	   * to MAX_TIMER_CNT-1 */
-  uint32_t remainder;				  /* One remaining time the ISR will
-  	  	  	  	  	  	  	  	  	   * will be called The period will be
-  	  	  	  	  	  	  	  	  	   * set to remainder */
-  uint32_t frac;				  	  /* The the frequency will be set to
-  	  	  	  	  	  	  	  	  	   * 1 mHz and the period will be
-  	  	  	  	  	  	  	  	  	   * set to frac */
+  int64_t loops;                        /* Number of Times the ISR will
+                                         * run before the call back will
+                                         * be called. The period will be set
+                                         * to MAX_TIMER_CNT-1 */
+  uint16_t remainder;                   /* One remaining time the ISR will
+                                         * will be called The period will be
+                                         * set to remainder */
+  uint16_t fraction;                    /* The the frequency will be set to
+                                         * 1 mHz and the period will be
+                                         * set to frac */
 };
 
 /****************************************************************************
@@ -111,81 +109,84 @@ extern "C"
 #define EXTERN extern
 #endif
 
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
+  /****************************************************************************
+   * Public Function Prototypes
+   ****************************************************************************/
 
-/****************************************************************************
- * Name: stm32_oneshot_initialize
- *
- * Description:
- *   Initialize the oneshot timer wrapper
- *
- * Input Parameters:
- *   oneshot    Caller allocated instance of the oneshot state structure
- *   chan       Timer counter channel to be used.  See the TC_CHAN*
- *              definitions in arch/arm/src/stm32/stm32_tc.h.
- *   resolution The required resolution of the timer in units of
- *              microseconds.  NOTE that the range is restricted to the
- *              range of uint16_t (excluding zero).
- *
- * Returned Value:
- *   Zero (OK) is returned on success; a negated errno value is returned
- *   on failure.
- *
- ****************************************************************************/
+  /****************************************************************************
+   * Name: stm32_oneshot_initialize
+   *
+   * Description:
+   *   Initialize the oneshot timer wrapper
+   *
+   * Input Parameters:
+   *   oneshot    Caller allocated instance of the oneshot state structure
+   *   chan       Timer counter channel to be used.  See the TC_CHAN*
+   *              definitions in arch/arm/src/stm32/stm32_tc.h.
+   *   resolution The required resolution of the timer in units of
+   *              microseconds.  NOTE that the range is restricted to the
+   *              range of uint16_t (excluding zero).
+   *
+   * Returned Value:
+   *   Zero (OK) is returned on success; a negated errno value is returned
+   *   on failure.
+   *
+   ****************************************************************************/
 
-int stm32_oneshot_initialize(struct stm32_oneshot_s *oneshot, int chan,
-                           uint16_t resolution);
+  int
+  stm32_oneshot_initialize(struct stm32_oneshot_s *oneshot, int chan,
+      uint16_t resolution);
 
-/****************************************************************************
- * Name: stm32_oneshot_start
- *
- * Description:
- *   Start the oneshot timer
- *
- * Input Parameters:
- *   oneshot Caller allocated instance of the oneshot state structure.  This
- *           structure must have been previously initialized via a call to
- *           stm32_oneshot_initialize();
- *   handler The function to call when when the oneshot timer expires.
- *   arg     An opaque argument that will accompany the callback.
- *   ts      Provides the duration of the one shot timer.
- *
- * Returned Value:
- *   Zero (OK) is returned on success; a negated errno value is returned
- *   on failure.
- *
- ****************************************************************************/
+  /****************************************************************************
+   * Name: stm32_oneshot_start
+   *
+   * Description:
+   *   Start the oneshot timer
+   *
+   * Input Parameters:
+   *   oneshot Caller allocated instance of the oneshot state structure.  This
+   *           structure must have been previously initialized via a call to
+   *           stm32_oneshot_initialize();
+   *   handler The function to call when when the oneshot timer expires.
+   *   arg     An opaque argument that will accompany the callback.
+   *   ts      Provides the duration of the one shot timer.
+   *
+   * Returned Value:
+   *   Zero (OK) is returned on success; a negated errno value is returned
+   *   on failure.
+   *
+   ****************************************************************************/
 
-int stm32_oneshot_start(struct stm32_oneshot_s *oneshot, oneshot_handler_t handler,
-                      void *arg, const struct timespec *ts);
+  int
+  stm32_oneshot_start(struct stm32_oneshot_s *oneshot,
+      oneshot_handler_t handler, void *arg, const struct timespec *ts);
 
-/****************************************************************************
- * Name: stm32_oneshot_cancel
- *
- * Description:
- *   Cancel the oneshot timer and return the time remaining on the timer.
- *
- *   NOTE: This function may execute at a high rate with no timer running (as
- *   when pre-emption is enabled and disabled).
- *
- * Input Parameters:
- *   oneshot Caller allocated instance of the oneshot state structure.  This
- *           structure must have been previously initialized via a call to
- *           stm32_oneshot_initialize();
- *   ts      The location in which to return the time remaining on the
- *           oneshot timer.  A time of zero is returned if the timer is
- *           not running.
- *
- * Returned Value:
- *   Zero (OK) is returned on success.  A call to up_timer_cancel() when
- *   the timer is not active should also return success; a negated errno
- *   value is returned on any failure.
- *
- ****************************************************************************/
+  /****************************************************************************
+   * Name: stm32_oneshot_cancel
+   *
+   * Description:
+   *   Cancel the oneshot timer and return the time remaining on the timer.
+   *
+   *   NOTE: This function may execute at a high rate with no timer running (as
+   *   when pre-emption is enabled and disabled).
+   *
+   * Input Parameters:
+   *   oneshot Caller allocated instance of the oneshot state structure.  This
+   *           structure must have been previously initialized via a call to
+   *           stm32_oneshot_initialize();
+   *   ts      The location in which to return the time remaining on the
+   *           oneshot timer.  A time of zero is returned if the timer is
+   *           not running.
+   *
+   * Returned Value:
+   *   Zero (OK) is returned on success.  A call to up_timer_cancel() when
+   *   the timer is not active should also return success; a negated errno
+   *   value is returned on any failure.
+   *
+   ****************************************************************************/
 
-int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts);
+  int
+  stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts);
 
 #undef EXTERN
 #ifdef __cplusplus

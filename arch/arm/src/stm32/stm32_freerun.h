@@ -3,7 +3,7 @@
  *
  *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
- *   		 David Sidrane <david_s5@nscdg.com>
+ *                   David Sidrane <david_s5@nscdg.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,11 +66,9 @@
 
 struct stm32_freerun_s
 {
-  uint8_t chan;              /* The timer/counter in use */
-  bool running;              /* True: the timer is running */
-  uint16_t overflow;         /* Timer counter overflow */
-  TC_HANDLE tch;             /* Handle returned by stm32_tim_init() */
-  uint32_t frequency; 	     /* Calculated frequency */
+  uint32_t overflow;                    /* Timer counter overflow */
+  FAR struct stm32_tim_dev_s * dev;     /* Handle returned by
+                                         * stm32_tim_initialize() */
 };
 
 /****************************************************************************

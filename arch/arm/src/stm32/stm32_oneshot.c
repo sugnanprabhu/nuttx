@@ -3,12 +3,11 @@
  *
  *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
- *   		 David Sidrane <david_s5@nscdg.com>
+ *           David Sidrane <david_s5@nscdg.com>
  *
  * References:
  *
  *   STM32Series Data Sheet
- *   Atmel NoOS sample code.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,8 +50,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
+#include <arch/board/board.h> // delete me with PROBES
 
-#include <arch/board/board.h> // DELET ME WITH PROBES
 #include <arch/irq.h>
 #include <nuttx/clock.h>
 
@@ -91,8 +90,7 @@
 #  define tcllvdbg(x...)
 #endif
 
-#define EXPIRED 0
-#define ISR_OVERHEAD_IN_TICKS 1
+#define MHZ 1000000
 
 /****************************************************************************
  * Private Types
@@ -133,7 +131,6 @@ static struct stm32_oneshot_s *g_oneshot;
 static int stm32_oneshot_handler(int irq, void *context)
 {
   struct stm32_oneshot_s *oneshot = g_oneshot;
-  FAR struct stm32_tim_dev_s * dev = (FAR struct stm32_tim_dev_s *) oneshot->tch;
   oneshot_handler_t oneshot_handler;
   void *oneshot_arg;
 
@@ -143,98 +140,105 @@ static int stm32_oneshot_handler(int irq, void *context)
   PROBE(5,true);
 
   switch(--oneshot->loops)
-     {
+  {
 
-	   case 0:
+  case 0:
 
-		  	  /* State: loops started above 0 and has transitioned from 1 to 0
-		  	   * which occurs because the count needed is greater then the timer
-		  	   * can hold in one go. So we must transition from continuous
-		  	   * mode to pulse
-		  	   */
+    /* State: loops started above 0 and has transitioned from 1 to 0
+     * which occurs because the count needed is greater then the timer
+     * can hold in one go. So we must transition from continuous
+     * mode to pulse
+     */
 
-		   	   if (oneshot->remainder)
-		 	    {
-			   	   PROBE_MARK(5);
+    if (oneshot->remainder)
+      {
+        PROBE_MARK(5);
+        /* Process the remander with */
+        (void) STM32_TIME_STARTTIMER(oneshot->dev, oneshot->frequency, STM32_TIM_MODE_PULSE,
+            oneshot->remainder);
 
-			 	  /* Process the remander with */
-			   	  (void) STM32_TIME_STARTTIMER(dev,oneshot->frequency,STM32_TIM_MODE_PULSE,
-			   			  oneshot->remainder);
-		 		  break;
-		 	    }
+        /* mark it done */
 
-		 	 /* no break */
+        oneshot->remainder = 0;
+        break;
+      }
 
-  	   case -1:
+    /* no break */
 
-		  	  /* State: a) loops started above 0 and has transitioned from 0 to -1
-		  	   * OR b) started at 0 transitioned from 0 to -1
-		  	   * This case handles a count that is less than or equal to what  the timer
-		  	   * can hold in one go.
-		  	   * Since b) can happen with out a) we must transition from continuous
-		  	   * mode to pulse here as well
-		  	   */
+  case -1:
 
-		 	  if (oneshot->frac)
-		 	    {
-			   	   PROBE_MARK(5);
-			   	   PROBE_MARK(5);
+    /* State: a) loops started above 0 and has transitioned from 0 to -1
+     * OR b) started at 0 transitioned from 0 to -1
+     * This case handles a count that is less than or equal to what  the timer
+     * can hold in one go.
+     * Since b) can happen with out a) we must transition from continuous
+     * mode to pulse here as well
+     */
 
-			 	  /* Process the fractions with 1 us periods */
+    if (oneshot->fraction)
+      {
+        PROBE_MARK(5);
+        PROBE_MARK(5);
 
-			   	  (void) STM32_TIME_STARTTIMER(dev,1000000,STM32_TIM_MODE_PULSE,
-			   			  oneshot->frac);
-		 		  break;
-		 	    }
+        /* Process the fractions with 1 us periods */
 
-		 	  /* no break */
+        (void) STM32_TIME_STARTTIMER(oneshot->dev, (1*MHZ), STM32_TIM_MODE_PULSE,
+            oneshot->fraction);
 
-  	   case -2:
+        /* mark it done */
 
-  		   	   /* State: We have either processed both a remainder and a fraction
-  		   	    * or none either way we are are done.
-		  	   */
+        oneshot->fraction = 0;
+        break;
+      }
 
-	   	   PROBE_MARK(5);
-	   	   PROBE_MARK(5);
-	   	   PROBE_MARK(5);
+    /* no break */
 
-  		   /* If we had a remainder or a fract the pulse mode was used and the clock
-  		    * was stopped, and disabled when the over flow occurred.
-  		    * But in case we did not have a remainder or fract shut it down
-  		    */
+  case -2:
 
-	   	   (void)STM32_TIM_DISABLEINT(dev,0);
-	   	   (void)STM32_TIM_SETMODE(dev, STM32_TIM_MODE_DISABLED);
+    /* State: We have either processed both a remainder and a fraction
+     * or none either way we are are done.
+     */
 
-  		  /* The timer is no longer running */
+    PROBE_MARK(5);
+    PROBE_MARK(5);
+    PROBE_MARK(5);
 
-  		  oneshot->running = false;
+    /* If we had a remainder or a fract the pulse mode was used and the clock
+     * was stopped, and disabled when the over flow occurred.
+     * But in case we did not have a remainder or fract shut it down
+     */
 
-  		  /* Forward the event, clearing out any vestiges */
+    (void)STM32_TIM_DISABLEINT(oneshot->dev,0);
+    (void)STM32_TIM_SETMODE(oneshot->dev, STM32_TIM_MODE_DISABLED);
 
-  		  oneshot_handler  = (oneshot_handler_t)oneshot->handler;
-  		  oneshot->handler = NULL;
-  		  oneshot_arg      = (void *)oneshot->arg;
-  		  oneshot->arg     = NULL;
+    /* The timer is no longer running */
 
-  		  oneshot_handler(oneshot_arg);
-  		  break;
+    oneshot->running = false;
+
+    /* Forward the event, clearing out any vestiges */
+
+    oneshot_handler  = (oneshot_handler_t)oneshot->handler;
+    oneshot->handler = NULL;
+    oneshot_arg      = (void *)oneshot->arg;
+    oneshot->arg     = NULL;
+
+    oneshot_handler(oneshot_arg);
+    break;
 
 
-  	   default:
+  default:
 
-		  	  /* State: loops started above 1  which occurs because the count
-		  	   * needed is greater then the timer can hold in one go.
-		  	   * keep looping until 0 are left. Then process any remainder
-		  	   * and fraction.
-		  	   */
+    /* State: loops started above 1  which occurs because the count
+     * needed is greater then the timer can hold in one go.
+     * keep looping until 0 are left. Then process any remainder
+     * and fraction.
+     */
 
-   		  break;
-     }
-   STM32_TIM_ACKINT(dev,0);
-   PROBE(4,false);
-   PROBE(5,false);
+    break;
+  }
+  STM32_TIM_ACKINT(oneshot->dev,0);
+  PROBE(4,false);
+  PROBE(5,false);
   return 0;
 }
 
@@ -263,9 +267,8 @@ static int stm32_oneshot_handler(int irq, void *context)
  ****************************************************************************/
 
 int stm32_oneshot_initialize(struct stm32_oneshot_s *oneshot, int chan,
-                           uint16_t resolution)
+    uint16_t resolution)
 {
-  FAR struct stm32_tim_dev_s * dev;
   int ret = OK;
 
   g_oneshot = oneshot;
@@ -280,24 +283,22 @@ int stm32_oneshot_initialize(struct stm32_oneshot_s *oneshot, int chan,
   PROBE_MARK(5);PROBE(5,false);
   PROBE_MARK(6);PROBE(6,false);
 
-  dev = stm32_tim_init(chan);
+  oneshot->dev = stm32_tim_init(chan);
 
-  if (!dev)
-  	{
-	  tcdbg("ERROR: Failed to allocate timer %d\n", chan);
-	  ret = -EBUSY;
-  	}
+  if (!oneshot->dev)
+    {
+      tcdbg("ERROR: Failed to allocate timer %d\n", chan);
+      ret = -EBUSY;
+    }
   else
     {
-	  /* Initialize the remaining fields in the state structure */
+      /* Initialize the remaining fields in the state structure */
 
-	  oneshot->tch 		  = dev;
-	  oneshot->chan       = chan;
-	  oneshot->running	  = false;
-	  oneshot->handler    = NULL;
-	  oneshot->arg        = NULL;
-	  oneshot->resolution = resolution;
-	  oneshot->frequency 	  = USEC_PER_SEC / resolution;
+      oneshot->running    = false;
+      oneshot->handler    = NULL;
+      oneshot->arg        = NULL;
+      oneshot->resolution = resolution;
+      oneshot->frequency  = USEC_PER_SEC / resolution;
 
     }
 
@@ -324,18 +325,19 @@ int stm32_oneshot_initialize(struct stm32_oneshot_s *oneshot, int chan,
  *
  ****************************************************************************/
 int stm32_oneshot_start(struct stm32_oneshot_s *oneshot, oneshot_handler_t handler,
-                      void *arg, const struct timespec *ts)
+    void *arg, const struct timespec *ts)
 {
-  FAR struct stm32_tim_dev_s * dev;
   uint64_t usec;
+  uint64_t resolutionticks;
   uint16_t period;
   stm32_tim_mode_t mode;
+  uint32_t frequency;
   irqstate_t flags;
 
-  dev = (FAR struct stm32_tim_dev_s *) oneshot->tch;
+  PROBE(1,true);
 
   tcvdbg("handler=%p arg=%p, ts=(%lu, %lu)\n",
-         handler, arg, (unsigned long)ts->tv_sec, (unsigned long)ts->tv_nsec);
+      handler, arg, (unsigned long)ts->tv_sec, (unsigned long)ts->tv_nsec);
   DEBUGASSERT(oneshot && handler && ts);
 
   /* Was the oneshot already running? */
@@ -370,36 +372,38 @@ int stm32_oneshot_start(struct stm32_oneshot_s *oneshot, oneshot_handler_t handl
    * frac is the odd amount of us left. The ISR will run one list time with a period
    * of frac and a frequency of 1 mHz
    */
-  oneshot->resolutionticks = usec / oneshot->resolution;
-  oneshot->loops 		   = (oneshot->resolutionticks / STM32_MAX_TIMER_CNT);
-  oneshot->remainder 	   = oneshot->resolutionticks % STM32_MAX_TIMER_CNT;
-  oneshot->frac  		   = usec % oneshot->resolution;
 
-  if (oneshot->loops >= 1)
-    {
-	  period = STM32_MAX_TIMER_CNT-1;
-	  mode = STM32_TIM_MODE_UP;
-    }
-  else
-  	{
-	  period = oneshot->remainder;
-	  mode = STM32_TIM_MODE_PULSE;
-    }
+    frequency  = oneshot->frequency;
+    resolutionticks    = usec / oneshot->resolution;
+    oneshot->loops     = resolutionticks / STM32_MAX_TIMER_CNT;
+    oneshot->remainder = resolutionticks % STM32_MAX_TIMER_CNT;
+    oneshot->fraction  = usec % oneshot->resolution;
+
+    if (oneshot->loops >= 1)
+      {
+        period = STM32_MAX_TIMER_CNT-1;
+        mode = STM32_TIM_MODE_UP;
+      }
+    else
+      {
+        period = oneshot->remainder;
+        mode = STM32_TIM_MODE_PULSE;
+      }
 
   /* Set up to receive the callback when the interrupt occurs */
 
-  (void)STM32_TIM_SETISR(dev, stm32_oneshot_handler, 0);
+  (void)STM32_TIM_SETISR(oneshot->dev, stm32_oneshot_handler, 0);
 
   /* Ack any interrupts. */
 
-  STM32_TIM_ACKINT(dev,0);
+  STM32_TIM_ACKINT(oneshot->dev,0);
 
 
-  (void) STM32_TIME_STARTTIMER(dev,oneshot->frequency, mode, period);
+  (void) STM32_TIME_STARTTIMER(oneshot->dev, frequency, mode, period);
 
   /* Enable device interrupts. */
 
-    STM32_TIM_ENABLEINT(dev,0);
+  STM32_TIM_ENABLEINT(oneshot->dev,0);
 
   /* Enable interrupts.  We should get the callback when the interrupt
    * occurs.
@@ -407,7 +411,8 @@ int stm32_oneshot_start(struct stm32_oneshot_s *oneshot, oneshot_handler_t handl
 
   oneshot->running = true;
   irqrestore(flags);
-  return OK;
+  PROBE(1,false);
+return OK;
 }
 
 /****************************************************************************
@@ -441,7 +446,7 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
   uint64_t usec;
   uint64_t sec;
   uint64_t nsec;
-  uint32_t count;
+  uint64_t count;
   int sr;
 
   /* Was the timer running? */
@@ -467,30 +472,32 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
 
   tcvdbg("Cancelling...\n");
 
-  FAR struct stm32_tim_dev_s * dev = (FAR struct stm32_tim_dev_s *) oneshot->tch;
-
   /* Read remaining */
 
-  count = STM32_TIME_GETREMAING(dev,&sr);
+  count = (uint64_t)STM32_TIME_GETREMAINING(oneshot->dev, &sr);
 
   /* Now we can disable the interrupt and stop the timer. */
 
-  (void)STM32_TIM_SETCLOCK(dev,0);
-
-  /* Ack any interrupts. */
-
+  (void)STM32_TIM_SETCLOCK(oneshot->dev,0);
 
   /* Set up to receive the callback when the interrupt occurs */
 
-  (void)STM32_TIM_SETISR(dev, NULL, 0);
+  (void)STM32_TIM_SETISR(oneshot->dev, NULL, 0);
 
   /* Enable device interrupts. */
 
-  STM32_TIM_DISABLEINT(dev,0);
+  STM32_TIM_DISABLEINT(oneshot->dev,0);
 
   /* Ack any interrupts. */
 
-  STM32_TIM_ACKINT(dev,0);
+  STM32_TIM_ACKINT(oneshot->dev,0);
+
+
+  count += oneshot->remainder;
+  if (oneshot->loops > 0)
+    {
+      count += oneshot->loops * STM32_MAX_TIMER_CNT;
+    }
 
   oneshot->running = false;
   oneshot->handler = NULL;
@@ -508,9 +515,9 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
        */
 
       tcvdbg("rc=%lu count=%lu usec=%lu\n",
-             (unsigned long)rc, (unsigned long)count, (unsigned long)usec);
+          (unsigned long)rc, (unsigned long)count, (unsigned long)usec);
 
-      if (count <= 0)
+      if (count == 0 && oneshot->fraction == 0)
         {
           /* No time remaining (?) */
 
@@ -522,7 +529,9 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
           /* The total time remaining is the difference.  Convert the that
            * to units of microseconds. */
 
-          usec        = (((uint64_t)(count)) * CONFIG_USEC_PER_TICK);
+          usec        = count * CONFIG_USEC_PER_TICK;
+          usec        += oneshot->fraction;
+
 
           /* Return the time remaining in the correct form */
 
@@ -534,7 +543,7 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
         }
 
       tcvdbg("remaining (%lu, %lu)\n",
-             (unsigned long)ts->tv_sec, (unsigned long)ts->tv_nsec);
+          (unsigned long)ts->tv_sec, (unsigned long)ts->tv_nsec);
     }
 
   return OK;

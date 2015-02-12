@@ -3,7 +3,7 @@
  *
  *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
- *   		 David Sidrane <david_s5@nscdg.com>
+ *           David Sidrane <david_s5@nscdg.com>
  *
  * References:
  *
@@ -19,10 +19,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the names NuttX nor Atmel nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
+* 3. Neither the name NuttX nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
  *    without specific prior written permission.
- *
+  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -51,7 +51,6 @@
 #include <errno.h>
 
 #include <arch/irq.h>
-#include <arch/board/board.h>
 #include <nuttx/clock.h>
 
 #include "stm32_freerun.h"
@@ -123,11 +122,9 @@ static struct stm32_freerun_s *g_freerun;
 
 static int  stm32_freerun_handler(int irq, void *context)
 {
-  struct stm32_freerun_s *freerun = g_freerun;
-  FAR struct stm32_tim_dev_s * dev = (FAR struct stm32_tim_dev_s *) freerun->tch;
-  DEBUGASSERT(freerun && freerun->overflow < UINT16_MAX);
-  freerun->overflow++;
-  STM32_TIM_ACKINT(dev,0);
+  DEBUGASSERT(freerun && g_freerun->overflow < UINT32_MAX);
+  g_freerun->overflow++;
+  STM32_TIM_ACKINT(g_freerun->dev,0);
   return 0;
 }
 
@@ -156,9 +153,8 @@ static int  stm32_freerun_handler(int irq, void *context)
  ****************************************************************************/
 
 int stm32_freerun_initialize(struct stm32_freerun_s *freerun, int chan,
-                           uint16_t resolution)
+    uint16_t resolution)
 {
-  FAR struct stm32_tim_dev_s * dev;
   int ret = OK;
 
   tcvdbg("chan=%d resolution=%d usec\n", chan, resolution);
@@ -167,39 +163,34 @@ int stm32_freerun_initialize(struct stm32_freerun_s *freerun, int chan,
   g_freerun = freerun;
 
   /* Get the Timer Counter frequency the corresponds to the requested resolution */
-  dev = stm32_tim_init(chan);
+  freerun->dev = stm32_tim_init(chan);
 
-  if (!dev)
-  	{
-	  tcdbg("ERROR: Failed to allocate timer %d\n", chan);
-	  ret = -EBUSY;
-  	}
+  if (!freerun->dev)
+    {
+      tcdbg("ERROR: Failed to allocate timer %d\n", chan);
+      ret = -EBUSY;
+    }
   else
     {
-	  /* Initialize the remaining fields in the state structure and return
-	   * success.
-	   */
+      /* Initialize the remaining fields in the state structure and return
+       * success.
+       */
 
-	  freerun->tch 		  = dev;
+      freerun->overflow = 0;
 
-	  freerun->chan     = chan;
-	  freerun->running  = false;
-	  freerun->overflow = 0;
 
-	  freerun->frequency = USEC_PER_SEC / (uint32_t)resolution;
+      /* Set up to receive the callback when the interrupt occurs */
 
-	  /* Set up to receive the callback when the interrupt occurs */
+      (void)STM32_TIM_SETISR(freerun->dev, stm32_freerun_handler,0);
+      (void)STM32_TIM_SETPERIOD(freerun->dev, STM32_MAX_TIMER_CNT-1);
 
-	  (void)STM32_TIM_SETISR(dev, stm32_freerun_handler,0);
-	  (void)STM32_TIM_SETPERIOD(dev, STM32_MAX_TIMER_CNT-1);
+      /* Enable device interrupts. */
 
-	  /* Enable device interrupts. */
+      STM32_TIM_ENABLEINT(freerun->dev,0);
 
-	  STM32_TIM_ENABLEINT(dev,0);
+      /* Start the counter */
 
-	  /* Start the counter */
-
-	  (void)STM32_TIM_SETCLOCK(dev,freerun->frequency);
+      (void)STM32_TIM_SETCLOCK(freerun->dev, USEC_PER_SEC / resolution);
     }
 
   return ret;
@@ -233,43 +224,42 @@ int stm32_freerun_counter(struct stm32_freerun_s *freerun, struct timespec *ts)
   uint32_t overflow;
   uint32_t sec;
   irqstate_t flags;
-  FAR struct stm32_tim_dev_s * dev;
 
   DEBUGASSERT(freerun && freerun->tch && ts);
-
-  dev = (FAR struct stm32_tim_dev_s *) freerun->tch;
 
 
   /* Temporarily disable the overflow counter */
 
-  counter  = STM32_TIME_GETREMAING(dev, &sr);
-  verify  = STM32_TIME_GETREMAING(dev, &sr);
+  flags = irqsave();
+
+  counter  = STM32_TIME_GETCOUNTER(freerun->dev, &sr);
+  overflow = freerun->overflow;
+  verify  = STM32_TIME_GETCOUNTER(freerun->dev, &sr);
+
   irqrestore(flags);
 
   tcvdbg("counter=%lu (%lu) overflow=%lu  sr=%08lx\n",
-         (unsigned long)counter,(unsigned long)verify,
-         (unsigned long)overflow,(unsigned long) sr);
+      (unsigned long)counter,(unsigned long)verify,
+      (unsigned long)overflow,(unsigned long) sr);
 
   /* If an interrupt was pending before we re-enabled interrupts,
    * then our value of overflow needs to be incremented.
    */
 
-  if ((sr & GTIM_SR_UIF) != 0)
+  if ((sr & ATIM_SR_UIF) != 0)
     {
       /* Increment the overflow count and use the value of the
        * guaranteed to be AFTER the overflow occurred.
        */
-
       overflow++;
       counter = verify;
-
       tcvdbg("counter=%lu overflow=%lu\n",
-             (unsigned long)counter, (unsigned long)overflow);
+          (unsigned long)counter, (unsigned long)overflow);
     }
 
   /* Convert the whole thing to units of microseconds. */
 
-  usec = ((((uint64_t)overflow * STM32_MAX_TIMER_CNT * CONFIG_USEC_PER_TICK) + (uint64_t)counter) * CONFIG_USEC_PER_TICK);
+  usec = ((uint64_t)overflow * STM32_MAX_TIMER_CNT * CONFIG_USEC_PER_TICK) + ((uint64_t)counter * CONFIG_USEC_PER_TICK);
 
   /* And return the value of the timer */
 
@@ -278,7 +268,7 @@ int stm32_freerun_counter(struct stm32_freerun_s *freerun, struct timespec *ts)
   ts->tv_nsec = (usec - (sec * USEC_PER_SEC)) * NSEC_PER_USEC;
 
   tcvdbg("usec=%llu ts=(%lu, %lu)\n",
-          usec, (unsigned long)ts->tv_sec, (unsigned long)ts->tv_nsec);
+      usec, (unsigned long)ts->tv_sec, (unsigned long)ts->tv_nsec);
 
   return OK;
 }
@@ -302,21 +292,19 @@ int stm32_freerun_counter(struct stm32_freerun_s *freerun, struct timespec *ts)
 
 int stm32_freerun_uninitialize(struct stm32_freerun_s *freerun)
 {
-  FAR struct stm32_tim_dev_s * dev;
   DEBUGASSERT(freerun && freerun->tch);
-
-  dev = (FAR struct stm32_tim_dev_s *) freerun->tch;
 
   /* Now we can disable the timer interrupt and disable the timer. */
 
-  STM32_TIM_SETMODE(dev,STM32_TIM_MODE_DISABLED);
-  STM32_TIM_DISABLEINT(dev,0);
-  (void)STM32_TIM_SETISR(dev, NULL,0);
+  STM32_TIM_SETMODE(freerun->dev,STM32_TIM_MODE_DISABLED);
+  STM32_TIM_DISABLEINT(freerun->dev,0);
+  (void)STM32_TIM_SETISR(freerun->dev, NULL,0);
 
   /* Free the timer */
 
-  stm32_tim_deinit(dev);
-  freerun->tch = NULL;
+  stm32_tim_deinit(freerun->dev);
+  freerun->dev = NULL;
+  g_freerun = NULL;
   return OK;
 }
 

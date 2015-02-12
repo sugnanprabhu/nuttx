@@ -66,6 +66,13 @@
 /************************************************************************************
  * Private Types
  ************************************************************************************/
+/* There are different timers available on the various Family of STM32
+ * So the names TIM27 and TIM18 a more about which APB the timers are in and hence the
+ * choice of which clock drives the timers
+ */
+#define APB1_FREQUENCY STM32_TIM27_FREQUENCY
+#define APB2_FREQUENCY STM32_TIM18_FREQUENCY
+
 /* Configuration ********************************************************************/
 /* Timer devices may be used for different purposes.  Such special purposes include:
  *
@@ -169,7 +176,6 @@ struct stm32_tim_priv_s
 /************************************************************************************
  * Private Functions
  ************************************************************************************/
-static void dumpregs(FAR struct stm32_tim_dev_s *dev);
 
 /* Get a 16-bit register value by offset */
 
@@ -278,15 +284,18 @@ static int stm32_tim_setclock_pre(FAR struct stm32_tim_dev_s *dev, uint32_t freq
       return 0;
     }
 
-#if STM32_NATIM > 0 || STM32_NGTIMNDMA > 0
-  if (((struct stm32_tim_priv_s *)dev)->base >= STM32_TIM1_BASE)
+  /* Here we have to decide which APB the timer is clocked by
+   */
+
+  #if STM32_NATIM > 0 || STM32_NGTIMNDMA > 0
+  if (((struct stm32_tim_priv_s *)dev)->base >= STM32_APB2_BASE)
     {
-      prescaler = STM32_TIM18_FREQUENCY / freq;
+      prescaler = APB2_FREQUENCY / freq;
     }
   else
 #endif
     {
-      prescaler = STM32_TIM27_FREQUENCY / freq;
+      prescaler = APB1_FREQUENCY / freq;
     }
 
   /* We need to decrement value for '1', but only, if we are allowed to
@@ -315,14 +324,12 @@ static int stm32_tim_setclock(FAR struct stm32_tim_dev_s *dev, uint32_t freq)
 
   prescaler = stm32_tim_setclock_pre(dev, freq);
 
-  /* Disable Timer? */
+  /* No a Disabled Timer? */
 
-  if (freq == 0)
+  if (freq != 0)
     {
-      return 0;
+      stm32_tim_enable(dev);
     }
-
-  stm32_tim_enable(dev);
 
   return prescaler;
 }
@@ -441,7 +448,7 @@ static void stm32_tim_ackint(FAR struct stm32_tim_dev_s *dev, int source)
  * General Functions
  ************************************************************************************/
 
-static int stm32_tim_setmodeEx(FAR struct stm32_tim_dev_s *dev, stm32_tim_mode_t mode, uint16_t setbits, uint16_t clearbits)
+static int stm32_tim_setmode_ex(FAR struct stm32_tim_dev_s *dev, stm32_tim_mode_t mode, uint16_t setbits, uint16_t clearbits)
 {
   uint16_t val = ((ATIM_CR1_CEN | ATIM_CR1_ARPE) & ~clearbits) | setbits;
 
@@ -460,15 +467,18 @@ static int stm32_tim_setmodeEx(FAR struct stm32_tim_dev_s *dev, stm32_tim_mode_t
 #if STM32_NBTIM > 0
   )
     {
-	  switch (mode & STM32_TIM_MODE_MASK)
-	    {
-	      case STM32_TIM_MODE_DISABLED:
-	      case STM32_TIM_MODE_PULSE:
-	      case STM32_TIM_MODE_UP:
-	        break;
 
-	      default: return ERROR;
-	    }
+  /* Basic Timers support theses modes */
+
+  switch (mode & STM32_TIM_MODE_MASK)
+      {
+        case STM32_TIM_MODE_DISABLED:
+        case STM32_TIM_MODE_PULSE:
+        case STM32_TIM_MODE_UP:
+          break;
+
+        default: return ERROR;
+      }
     }
 #endif
 
@@ -516,7 +526,7 @@ static int stm32_tim_setmodeEx(FAR struct stm32_tim_dev_s *dev, stm32_tim_mode_t
 
 static int stm32_tim_setmode(FAR struct stm32_tim_dev_s *dev, stm32_tim_mode_t mode)
 {
-	return stm32_tim_setmodeEx(dev, mode, 0, 0);
+  return stm32_tim_setmode_ex(dev, mode, 0, 0);
 
 }
 
@@ -820,90 +830,76 @@ static int stm32_tim_getcapture(FAR struct stm32_tim_dev_s *dev, uint8_t channel
 }
 
 #ifdef CONFIG_STM32_ONESHOT
+
+static int stm32_tim_getcount(FAR struct stm32_tim_dev_s *dev, int * sr)
+{
+  irqstate_t flags;
+  uint32_t count;
+
+  ASSERT(dev && sr);
+
+  flags = irqsave();
+  count = (uint32_t) stm32_getreg16(dev,STM32_BTIM_CNT_OFFSET);
+  *sr = stm32_getreg16(dev, STM32_BTIM_SR_OFFSET);
+  irqrestore(flags);
+
+  return count;
+}
+
 static int stm32_tim_getremaining(FAR struct stm32_tim_dev_s *dev, int * sr)
 {
   irqstate_t flags;
-  int remaining;
+  uint32_t count;
+  uint32_t remaining;
+
   ASSERT(dev && sr);
-  flags    = irqsave();
-  remaining = stm32_getreg16(dev,STM32_BTIM_ARR_OFFSET);
-  remaining -= stm32_getreg16(dev,STM32_BTIM_CNT_OFFSET);
-  *sr = stm32_getreg16(dev, STM32_BTIM_SR_OFFSET);
+
+  flags = irqsave();
+  count = stm32_tim_getcount(dev,sr);
+  remaining =  stm32_getreg16(dev,STM32_BTIM_ARR_OFFSET);
   irqrestore(flags);
-  return remaining;
+
+  return remaining-count;
 }
 
-typedef struct {
-	uint16_t CR1;
-	uint16_t CR2;
-	uint16_t DIER;
-	uint16_t SR;
-	uint16_t EGR;
-	uint16_t CNT;
-	uint16_t PSC;
-	uint16_t ARR;
-} tmr_t;
-
-static volatile tmr_t lsttmr;
-static volatile tmr_t tmr;
-
-static void dumpregs(FAR struct stm32_tim_dev_s *dev)
-{
-
-//	syslog(LOG_DEBUG,"CR1:%08lx\nCR2:%08lx\nDIER:%08lx\nSR:%08lx\nEGR:%08lx\nCNT:%08lx\nPSC:%08lx\nARR:%08lx\n",
-//			tmr->CR1,tmr->CR2, tmr->DIER, tmr->SR, tmr->EGR, tmr->CNT,tmr->PSC, tmr->ARR);
-
-	 lsttmr = tmr;
-	tmr.CR1= stm32_getreg16(dev, STM32_BTIM_CR1_OFFSET);
-	tmr.CR2= stm32_getreg16(dev, STM32_BTIM_CR2_OFFSET);
-	 tmr.DIER= stm32_getreg16(dev, STM32_BTIM_DIER_OFFSET);
-	 tmr.SR= stm32_getreg16(dev, STM32_BTIM_SR_OFFSET);
-	 tmr.EGR= stm32_getreg16(dev, STM32_BTIM_EGR_OFFSET);
-	 tmr.CNT= stm32_getreg16(dev, STM32_BTIM_CNT_OFFSET);
-	tmr.PSC= stm32_getreg16(dev, STM32_BTIM_PSC_OFFSET);
-	 tmr.ARR= stm32_getreg16(dev, STM32_BTIM_ARR_OFFSET);
-
-
-}
 
 static int  stm32_tim_starttimer(FAR struct stm32_tim_dev_s *dev, uint32_t freq,
-		stm32_tim_mode_t mode, uint32_t period)
+    stm32_tim_mode_t mode, uint32_t period)
 {
-	int prescale;
-    uint16_t setbits = ATIM_CR1_URS;
+  int prescale;
+  uint16_t setbits = ATIM_CR1_URS;
 
-    ASSERT(dev);
+  ASSERT(dev);
 
+  /* Stop the timer and block UEV from generating DMA or Interrupts
+  * Disable buffering so the PSC and ARR reload immediately
+  */
 
-    /* Stop the timer and block UEV from generating DMA or Interrupts
-     * Disable buffering so the PSC and ARR reload immediately
-     */
+  stm32_putreg16(dev, STM32_BTIM_CR1_OFFSET, ATIM_CR1_URS);
 
-    stm32_putreg16(dev, STM32_BTIM_CR1_OFFSET, ATIM_CR1_URS);
+  /* Set the PSC Immediately */
 
-    /* Set the PSC Immediately */
+  prescale = stm32_tim_setclock_pre(dev, freq);
 
-	prescale = stm32_tim_setclock_pre(dev, freq);
+  /* Set the ARR Immediately */
 
-	/* Set the ARR Immediately */
+  stm32_tim_setperiod(dev, period);
 
-	stm32_tim_setperiod(dev, period);
+  /* Force the Reload */
 
-	/* Force the Reload */
+  stm32_tim_reload_counter(dev);
 
-	stm32_tim_reload_counter(dev);
+  /* Clear the SR: UIF (There should not have been any IRQ) */
 
-	/* Clear the SR: UIF (There should not have been any IRQ) */
+  stm32_tim_ackint(dev,0);
 
-	stm32_tim_ackint(dev,0);
+  /* Set the users mode adding in ARPE (default in setModeEx and URS) to prevent
+   * UG from generating UEV we only want timer overflows to do that
+   */
 
-	/* Set the users mode adding in ARPE (default in setModeEx and URS) to prevent
-	 * UG from generating UEV we only want timer overflows to do that
-	 */
+  stm32_tim_setmode_ex(dev, mode, setbits, 0);
 
-	stm32_tim_setmodeEx(dev, mode, setbits, 0);
-
-	return prescale;
+  return prescale;
 }
 
 #endif
@@ -930,7 +926,8 @@ struct stm32_tim_ops_s stm32_tim_ops =
   .ackint         = &stm32_tim_ackint,
 #ifdef CONFIG_STM32_ONESHOT
   .readremaining  = &stm32_tim_getremaining,
-  .starttimer	  = &stm32_tim_starttimer
+  .readcount      = &stm32_tim_getcount,
+  .starttimer     = &stm32_tim_starttimer
 #endif
 
 };

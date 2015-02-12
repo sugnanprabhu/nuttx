@@ -3,7 +3,7 @@
  *
  *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
- *   		 David Sidrane <david_s5@nscdg.com>
+ *           David Sidrane <david_s5@nscdg.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -87,8 +87,6 @@
 #include <stdbool.h>
 
 #include <nuttx/arch.h>
-#include <arch/board/board.h> // delete me with PROBES
-
 
 #include "up_internal.h"
 #include "stm32_tim.h"
@@ -318,26 +316,7 @@ void up_timer_initialize(void)
     {
       tclldbg("ERROR: stm32_freerun_initialize failed\n");
       PANIC();
-
     }
-
-  	  struct timespec ts;
-  	  ts.tv_nsec = 12345678;
-  	  ts.tv_sec = 1;
-
-  	  PROBE(3,true);
-  	  PROBE_MARK(3);
-  	  up_mdelay(1000);
-     PROBE(3,false);
-  	  int j = 1000;
-
-  	  while(j--) {
-		PROBE(3,true);
-		int n = test_cnt;
-		up_timer_start(&ts);
-		while(n == test_cnt);
-		PROBE(3,false);
-  	  }
 }
 
 /****************************************************************************
