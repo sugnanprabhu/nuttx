@@ -87,6 +87,8 @@
 #include <stdbool.h>
 
 #include <nuttx/arch.h>
+#include <arch/board/board.h> // delete me with PROBES
+
 
 #include "up_internal.h"
 #include "stm32_tim.h"
@@ -255,10 +257,11 @@ struct stm32_tickless_s g_tickless;
  *   concurrency protections are required.
  *
  ****************************************************************************/
-
+static volatile int test_cnt = 0;
 static void stm32_oneshot_handler(void *arg)
 {
   tcllvdbg("Expired...\n");
+  test_cnt++;
   sched_timer_expiration();
 }
 
@@ -315,7 +318,26 @@ void up_timer_initialize(void)
     {
       tclldbg("ERROR: stm32_freerun_initialize failed\n");
       PANIC();
+
     }
+
+  	  struct timespec ts;
+  	  ts.tv_nsec = 12345678;
+  	  ts.tv_sec = 1;
+
+  	  PROBE(3,true);
+  	  PROBE_MARK(3);
+  	  up_mdelay(1000);
+     PROBE(3,false);
+  	  int j = 1000;
+
+  	  while(j--) {
+		PROBE(3,true);
+		int n = test_cnt;
+		up_timer_start(&ts);
+		while(n == test_cnt);
+		PROBE(3,false);
+  	  }
 }
 
 /****************************************************************************

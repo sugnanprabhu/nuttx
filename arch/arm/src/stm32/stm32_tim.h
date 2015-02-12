@@ -59,18 +59,19 @@ typedef void *TC_HANDLE;
 
 /* Helpers **************************************************************************/
 
-#define STM32_TIM_SETMODE(d,mode)       ((d)->ops->setmode(d,mode))
-#define STM32_TIM_SETCLOCK(d,freq)      ((d)->ops->setclock(d,freq))
-#define STM32_TIM_SETPERIOD(d,period)   ((d)->ops->setperiod(d,period))
-#define STM32_TIM_SETCHANNEL(d,ch,mode) ((d)->ops->setchannel(d,ch,mode))
-#define STM32_TIM_SETCOMPARE(d,ch,comp) ((d)->ops->setcompare(d,ch,comp))
-#define STM32_TIM_GETCAPTURE(d,ch)      ((d)->ops->getcapture(d,ch))
-#define STM32_TIM_SETISR(d,hnd,s)       ((d)->ops->setisr(d,hnd,s))
-#define STM32_TIM_ENABLEINT(d,s)        ((d)->ops->enableint(d,s))
-#define STM32_TIM_DISABLEINT(d,s)       ((d)->ops->disableint(d,s))
-#define STM32_TIM_ACKINT(d,s)           ((d)->ops->ackint(d,s))
+#define STM32_TIM_SETMODE(d,mode)       	((d)->ops->setmode(d,mode))
+#define STM32_TIM_SETCLOCK(d,freq)      	((d)->ops->setclock(d,freq))
+#define STM32_TIM_SETPERIOD(d,period)   	((d)->ops->setperiod(d,period))
+#define STM32_TIM_SETCHANNEL(d,ch,mode) 	((d)->ops->setchannel(d,ch,mode))
+#define STM32_TIM_SETCOMPARE(d,ch,comp) 	((d)->ops->setcompare(d,ch,comp))
+#define STM32_TIM_GETCAPTURE(d,ch)      	((d)->ops->getcapture(d,ch))
+#define STM32_TIM_SETISR(d,hnd,s)       	((d)->ops->setisr(d,hnd,s))
+#define STM32_TIM_ENABLEINT(d,s)        	((d)->ops->enableint(d,s))
+#define STM32_TIM_DISABLEINT(d,s)       	((d)->ops->disableint(d,s))
+#define STM32_TIM_ACKINT(d,s)           	((d)->ops->ackint(d,s))
 #ifdef CONFIG_STM32_ONESHOT
-#define STM32_TIME_GETREMAING(d,sr)     ((d)->ops->readremaining(d,sr))
+#define STM32_TIME_STARTTIMER(d,f,m,p)  ((d)->ops->starttimer(d,f,m,p))
+#define STM32_TIME_GETREMAING(d,sr)     	((d)->ops->readremaining(d,sr))
 #endif
 /************************************************************************************
  * Public Types
@@ -181,6 +182,8 @@ struct stm32_tim_ops_s
   void (*ackint)(FAR struct stm32_tim_dev_s *dev, int source);
 #ifdef CONFIG_STM32_ONESHOT
   int (*readremaining)(FAR struct stm32_tim_dev_s *dev, int *sr);
+  int (*starttimer)(FAR struct stm32_tim_dev_s *dev, uint32_t freq, stm32_tim_mode_t mode,
+		  uint32_t period);
 #endif
 
 };

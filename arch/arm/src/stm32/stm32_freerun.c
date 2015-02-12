@@ -124,12 +124,10 @@ static struct stm32_freerun_s *g_freerun;
 static int  stm32_freerun_handler(int irq, void *context)
 {
   struct stm32_freerun_s *freerun = g_freerun;
-  PROBE(3,true);
   FAR struct stm32_tim_dev_s * dev = (FAR struct stm32_tim_dev_s *) freerun->tch;
   DEBUGASSERT(freerun && freerun->overflow < UINT16_MAX);
   freerun->overflow++;
   STM32_TIM_ACKINT(dev,0);
-  PROBE(3,false);
   return 0;
 }
 
