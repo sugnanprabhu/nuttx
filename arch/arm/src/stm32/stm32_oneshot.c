@@ -387,6 +387,7 @@ int stm32_oneshot_start(struct stm32_oneshot_s *oneshot, oneshot_handler_t handl
     else
       {
         period = oneshot->remainder;
+        oneshot->remainder = 0;
         mode = STM32_TIM_MODE_PULSE;
       }
 
