@@ -495,9 +495,14 @@ int stm32_oneshot_cancel(struct stm32_oneshot_s *oneshot, struct timespec *ts)
 
 
   count += oneshot->remainder;
+
   if (oneshot->loops > 0)
     {
-      count += oneshot->loops * STM32_MAX_TIMER_CNT;
+
+      /* A loop of 1 implies the count is the remaining of that loop
+       * so the calculation is loop-1 */
+
+      count += (oneshot->loops -1 ) * STM32_MAX_TIMER_CNT;
     }
 
   oneshot->running = false;
