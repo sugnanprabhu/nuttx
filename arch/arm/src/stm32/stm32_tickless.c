@@ -332,7 +332,7 @@ void up_timer_initialize(void)
   volatile uint64_t Dt;
   for ( s=0; s < 5; s++) {
 
-      for (int i=50; i < 15000; i += 100) {
+      for (int i=50; i < 1100; i += 100) {
 
           int j = 2;
 
