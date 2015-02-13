@@ -87,6 +87,7 @@
 #include <stdbool.h>
 
 #include <nuttx/arch.h>
+#include <arch/board/board.h> // delete me with PROBES
 
 #include "up_internal.h"
 #include "stm32_tim.h"
@@ -316,6 +317,53 @@ void up_timer_initialize(void)
     {
       tclldbg("ERROR: stm32_freerun_initialize failed\n");
       PANIC();
+    }
+
+  hrt_init();
+  volatile uint64_t bk = 0;
+  volatile uint64_t st = 0;
+  volatile uint64_t delay = 0;
+  volatile struct timespec ts;
+  volatile struct timespec remain;
+  volatile uint64_t Ts;
+  volatile uint64_t Tn;
+  volatile int s;
+  volatile uint64_t D;
+  volatile uint64_t Dt;
+  for ( s=0; s < 5; s++) {
+
+      for (int i=50; i < 15000; i += 100) {
+
+          int j = 2;
+
+          while(j--) {
+              ts.tv_nsec = i * 1000;
+              ts.tv_sec = s;
+
+              int cnt = test_cnt;
+              PROBE(3,true);
+              delay = ts.tv_nsec/1000 + (ts.tv_sec * 1000000);
+              up_timer_start(&ts);
+              Ts = hrt_absolute_time();
+              while(cnt == test_cnt){
+                  Tn = hrt_absolute_time();
+                  D = Tn - Ts;
+                  if (D >= (delay/2)) {
+                    up_timer_cancel(&remain);
+                    bk = remain.tv_nsec/1000 + (remain.tv_sec * 1000000);
+                    Dt = (bk - delay/2);
+                    if (bk == delay/2) {
+                        st++;
+                    } else {
+                        st--;
+                    }
+                    break;
+
+                  }
+              }
+              PROBE(3,false);
+          }
+       }
     }
 }
 
