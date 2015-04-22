@@ -605,7 +605,7 @@ static inline int stm32_i2c_sem_waitdone(FAR struct stm32_i2c_priv_s *priv, int 
         }
         
         abstime.tv_nsec += (CONFIG_STM32_I2CTIMEOUS_PER_BYTE * bytecount) * 1000;
-        if (abstime.tv_nsec > 1000 * 1000 * 1000)
+        if (abstime.tv_nsec >= 1000 * 1000 * 1000)
         {
             abstime.tv_sec++;
             abstime.tv_nsec -= 1000 * 1000 * 1000;
@@ -613,7 +613,7 @@ static inline int stm32_i2c_sem_waitdone(FAR struct stm32_i2c_priv_s *priv, int 
         
 #elif CONFIG_STM32_I2CTIMEOMS > 0
         abstime.tv_nsec += CONFIG_STM32_I2CTIMEOMS * 1000 * 1000;
-        if (abstime.tv_nsec > 1000 * 1000 * 1000)
+        if (abstime.tv_nsec >= 1000 * 1000 * 1000)
         {
             abstime.tv_sec++;
             abstime.tv_nsec -= 1000 * 1000 * 1000;
