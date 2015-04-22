@@ -2047,7 +2047,6 @@ int up_i2creset(FAR struct i2c_dev_s * dev)
     unsigned clock_count;
     unsigned stretch_count;
     int ret = ERROR;
-    irqstate_t state;
     
     ASSERT(dev);
     
