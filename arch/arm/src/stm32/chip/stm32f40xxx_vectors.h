@@ -56,6 +56,8 @@
 #    define ARMV7M_PERIPHERAL_INTERRUPTS 87
 #  elif defined(CONFIG_STM32_STM32F429)
 #    define ARMV7M_PERIPHERAL_INTERRUPTS 91
+#  elif defined(CONFIG_STM32_STM32F446)
+#    define ARMV7M_PERIPHERAL_INTERRUPTS 97
 #  else
 #    define ARMV7M_PERIPHERAL_INTERRUPTS 82
 #  endif
@@ -145,6 +147,10 @@ VECTOR(stm32_cryp, STM32_IRQ_CRYP)               /* Vector 16+79: CRYP crypto gl
 VECTOR(stm32_hash, STM32_IRQ_HASH)               /* Vector 16+80: Hash and Rng global interrupt */
 VECTOR(stm32_fpu, STM32_IRQ_FPU)                 /* Vector 16+81: FPU global interrupt */
 
+#if defined(CONFIG_STM32_STM32F427) || defined(CONFIG_STM32_STM32F429) || \
+    defined(CONFIG_STM32_STM32F446)
+VECTOR(stm32_spi4, STM32_IRQ_SPI4)               /* Vector 16+84: SPI4 interrupt */
+#endif
 #if defined(CONFIG_STM32_STM32F427) || defined(CONFIG_STM32_STM32F429)
 VECTOR(stm32_uart7, STM32_IRQ_UART7)             /* Vector 16+82: UART7 interrupt */
 VECTOR(stm32_uart8, STM32_IRQ_UART8)             /* Vector 16+83: UART8 interrupt */

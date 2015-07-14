@@ -665,7 +665,8 @@ static void stm32_stdclockconfig(void)
       putreg32(regval, STM32_RCC_APB1ENR);
 
       regval  = getreg32(STM32_PWR_CR);
-#if defined(CONFIG_STM32_STM32F427) || defined(CONFIG_STM32_STM32F429)
+#if defined(CONFIG_STM32_STM32F427) || defined(CONFIG_STM32_STM32F429) || \
+    defined(CONFIG_STM32_STM32F446)
       regval &= ~PWR_CR_VOS_MASK;
       regval |= PWR_CR_VOS_SCALE_1;
 #else
@@ -726,7 +727,7 @@ static void stm32_stdclockconfig(void)
         {
         }
 
-#if defined(CONFIG_STM32_STM32F429)
+#if defined(CONFIG_STM32_STM32F429) || defined(CONFIG_STM32_STM32F446)
       /* Enable the Over-drive to extend the clock frequency to 180 Mhz */
 
       regval  = getreg32(STM32_PWR_CR);
