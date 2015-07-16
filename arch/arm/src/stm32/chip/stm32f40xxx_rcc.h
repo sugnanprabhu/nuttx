@@ -57,8 +57,8 @@
 #define STM32_RCC_APB1ENR_OFFSET    0x0040  /* APB1 Peripheral Clock enable register */
 #define STM32_RCC_APB2ENR_OFFSET    0x0044  /* APB2 Peripheral Clock enable register */
 #define STM32_RCC_AHB1LPENR_OFFSET  0x0050  /* RCC AHB1 low power mode peripheral clock enable register */
-#define STM32_RCC_AH2BLPENR_OFFSET  0x0054  /* RCC AHB2 low power mode peripheral clock enable register */
-#define STM32_RCC_AH3BLPENR_OFFSET  0x0058  /* RCC AHB3 low power mode peripheral clock enable register */
+#define STM32_RCC_AHB2LPENR_OFFSET  0x0054  /* RCC AHB2 low power mode peripheral clock enable register */
+#define STM32_RCC_AHB3LPENR_OFFSET  0x0058  /* RCC AHB3 low power mode peripheral clock enable register */
 #define STM32_RCC_APB1LPENR_OFFSET  0x0060  /* RCC APB1 low power mode peripheral clock enable register */
 #define STM32_RCC_APB2LPENR_OFFSET  0x0060  /* RCC APB2 low power mode peripheral clock enable register */
 #define STM32_RCC_BDCR_OFFSET       0x0070  /* Backup domain control register */
@@ -93,8 +93,8 @@
 #define STM32_RCC_APB1ENR           (STM32_RCC_BASE+STM32_RCC_APB1ENR_OFFSET)
 #define STM32_RCC_APB2ENR           (STM32_RCC_BASE+STM32_RCC_APB2ENR_OFFSET)
 #define STM32_RCC_AHB1LPENR         (STM32_RCC_BASE+STM32_RCC_AHB1LPENR_OFFSET)
-#define STM32_RCC_AH2BLPENR         (STM32_RCC_BASE+STM32_RCC_AH2BLPENR)
-#define STM32_RCC_AH3BLPENR         (STM32_RCC_BASE+STM32_RCC_AH3BLPENR_OFFSET)
+#define STM32_RCC_AHB2LPENR         (STM32_RCC_BASE+STM32_RCC_AHB2LPENR_OFFSET)
+#define STM32_RCC_AHB3LPENR         (STM32_RCC_BASE+STM32_RCC_AHB3LPENR_OFFSET)
 #define STM32_RCC_APB1LPENR         (STM32_RCC_BASE+STM32_RCC_APB1LPENR_OFFSET)
 #define STM32_RCC_APB2LPENR         (STM32_RCC_BASE+STM32_RCC_APB2LPENR_OFFSET)
 #define STM32_RCC_BDCR              (STM32_RCC_BASE+STM32_RCC_BDCR_OFFSET)
