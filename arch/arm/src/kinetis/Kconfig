@@ -535,6 +535,20 @@ config KINETIS_FTM3
 	---help---
 		Support FlexTimer 3
 
+config KINETIS_TPM1
+	bool "TPM1"
+	default n
+	depends on ARCH_FAMILY_K66 || ARCH_FAMILY_K26
+	---help---
+		Support TPM module 1
+
+config KINETIS_TPM2
+	bool "TPM2"
+	default n
+	depends on ARCH_FAMILY_K66 || ARCH_FAMILY_K26
+	---help---
+		Support TPM module 2
+
 config KINETIS_LPTIMER
 	bool "Low power timer (LPTIMER)"
 	default n
