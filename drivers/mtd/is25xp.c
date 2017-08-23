@@ -748,6 +748,12 @@ static ssize_t is25xp_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbyte
 
   finfo("offset: %08lx nbytes: %d\n", (long)offset, (int)nbytes);
 
+  /* Lock the SPI bus NOW because the following call must be executed with
+   * the bus locked.
+   */
+
+  is25xp_lock(priv->dev);
+
   /* Wait for any preceding write to complete.  We could simplify things by
    * perform this wait at the end of each write operation (rather than at
    * the beginning of ALL operations), but have the wait first will slightly
@@ -759,9 +765,8 @@ static ssize_t is25xp_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbyte
       is25xp_waitwritecomplete(priv);
     }
 
-  /* Lock the SPI bus and select this FLASH part */
+  /* Select this FLASH part */
 
-  is25xp_lock(priv->dev);
   SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
 
   /* Send "Read from Memory " instruction */
@@ -782,6 +787,7 @@ static ssize_t is25xp_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbyte
 
   SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
   is25xp_unlock(priv->dev);
+
   finfo("return nbytes: %d\n", (int)nbytes);
   return nbytes;
 }
