@@ -34,18 +34,22 @@
 
 # Get the input parameter list
 
-USAGE="USAGE: $0 [-d] [-z] [-u] [-w|wy|wn] -t <top-dir> [-x <lib-ext>] -l \"lib1 [lib2 [lib3 ...]]\""
+USAGE="USAGE: $0 [-d] [-e] [-z] [-u] [-w|wy|wn] -t <top-dir> [-x <lib-ext>] -l \"lib1 [lib2 [lib3 ...]]\""
 unset TOPDIR
 unset LIBLIST
 unset TGZ
 USRONLY=n
 WINTOOL=n
 LIBEXT=.a
+INSITU=y
 
 while [ ! -z "$1" ]; do
 	case $1 in
 		-d )
 			set -x
+			;;
+		-e )
+			INSITU=n
 			;;
 		-l )
 			shift
@@ -373,13 +377,17 @@ done
 cd "${TOPDIR}" || \
 	{ echo "MK: 'cd ${TOPDIR}' failed"; exit 1; }
 
-if [ "X${TGZ}" = "Xy" ]; then
-	tar cvf "${EXPORTSUBDIR}.tar" "${EXPORTSUBDIR}" 1>/dev/null 2>&1
-	gzip -f "${EXPORTSUBDIR}.tar"
-else
-	zip -r "${EXPORTSUBDIR}.zip" "${EXPORTSUBDIR}" 1>/dev/null 2>&1
+# Should we leave the export insitu
+
+if [ "X${INSITU}" = "Xn" ]; then
+    if [ "X${TGZ}" = "Xy" ]; then
+	    tar cvf "${EXPORTSUBDIR}.tar" "${EXPORTSUBDIR}" 1>/dev/null 2>&1
+	    gzip -f "${EXPORTSUBDIR}.tar"
+    else
+	    zip -r "${EXPORTSUBDIR}.zip" "${EXPORTSUBDIR}" 1>/dev/null 2>&1
+    fi
+
+    # Clean up after ourselves
+
+    rm -rf "${EXPORTSUBDIR}"
 fi
-
-# Clean up after ourselves
-
-rm -rf "${EXPORTSUBDIR}"
